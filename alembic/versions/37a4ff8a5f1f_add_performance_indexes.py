@@ -17,7 +17,7 @@ import sqlalchemy as sa
 
 
 revision = "001_add_performance_indexes"
-down_revision = None
+down_revision = "37a4ff8a5f1f"
 branch_labels = None
 depends_on = None
 
