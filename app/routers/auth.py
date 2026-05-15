@@ -90,7 +90,7 @@ class TokenRefreshResponse(BaseModel):
     expires_in: int
 
 
-@router.post("/me", response_model=AuthUserResponse)
+@router.get("/me", response_model=AuthUserResponse)
 async def get_me(current_user: AuthUser = Depends(get_current_user)):
     roles = [ur.role.name for ur in current_user.roles] if current_user.roles else []
     return AuthUserResponse(

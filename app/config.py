@@ -24,8 +24,8 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 480  # 8 hours
 
-    # CORS
-    CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:3000"]
+    # CORS — accepts JSON array string or comma-separated
+    CORS_ORIGINS: str = '["http://localhost:5173", "http://localhost:3000"]'
 
     # Audit
     HMAC_SECRET: str = "contextshield-hmac-secret-change-in-production"
@@ -36,6 +36,9 @@ class Settings(BaseSettings):
 
     # ML Models
     MODEL_DIR: str = "ml/models"
+
+    # Demo mode
+    DEMO_MODE: bool = False
 
     model_config = SettingsConfigDict(
         case_sensitive=True,

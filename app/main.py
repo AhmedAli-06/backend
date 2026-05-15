@@ -1,4 +1,5 @@
 # pyrefly: ignore [missing-import]
+import json
 import logging
 from contextlib import asynccontextmanager
 from enum import Enum
@@ -41,29 +42,36 @@ from app.services.scheduler import register_weekly_retrain_job
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        import app.models  # noqa: F401
-        await conn.run_sync(Base.metadata.create_all)
+    try:
+        async with engine.begin() as conn:
+            import app.models  # noqa: F401
+            await conn.run_sync(Base.metadata.create_all)
+    except Exception as e:
+        logger.warning(f"Database init skipped: {e}")
 
-    # Start background scheduler
+    try:
+        from app.database import AsyncSessionLocal
+        from app.services.insider_threat import compute_all_user_threat_scores
 
-    from app.database import AsyncSessionLocal
-    from app.services.insider_threat import compute_all_user_threat_scores
+        async def weekly_threat_job():
+            from app.models.tenant import Tenant
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(select(Tenant))
+                tenants = result.scalars().all()
+                for tenant in tenants:
+                    await compute_all_user_threat_scores(db, tenant.id)
 
-    async def weekly_threat_job():
-        from app.models.tenant import Tenant
-        async with AsyncSessionLocal() as db:
-            result = await db.execute(select(Tenant))
-            tenants = result.scalars().all()
-            for tenant in tenants:
-                await compute_all_user_threat_scores(db, tenant.id)
-
-    scheduler.add_job(weekly_threat_job, "cron", day_of_week="mon", hour=6, minute=0)
-    register_weekly_retrain_job(scheduler)
-    scheduler.start()
+        scheduler.add_job(weekly_threat_job, "cron", day_of_week="mon", hour=6, minute=0)
+        register_weekly_retrain_job(scheduler)
+        scheduler.start()
+    except Exception as e:
+        logger.warning(f"Scheduler init skipped: {e}")
 
     yield
-    scheduler.shutdown()
+    try:
+        scheduler.shutdown()
+    except Exception:
+        pass
     await engine.dispose()
 
 app = FastAPI(
@@ -75,7 +83,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=get_settings().CORS_ORIGINS,
+    allow_origins=json.loads(get_settings().CORS_ORIGINS),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
